@@ -56,10 +56,12 @@ v.capacity();                 // 4
 ## Trivially copyable vs. not
 
 `insert()`/`erase()` shift elements over; for a trivially copyable `T` this is done with a single
-`memmove`, which is why `MiniVector` can be so much faster than `std::vector` for that case. For
-a non-trivially-copyable `T` (e.g. `std::string`), the same operations fall back at compile time
-to a per-element move-assignment loop, so they still work correctly -- just without the bulk-copy
-speedup.
+`memmove` -- the same trick most `std::vector` implementations already use internally for
+trivial types, so this is parity with `std::vector`, not an edge over it. For a
+non-trivially-copyable `T` (e.g. `std::string`), the same operations fall back at compile time to
+a per-element move-assignment loop instead, so they still work correctly -- just without the
+bulk-copy shortcut. (The actual performance advantage over `std::vector`, below, comes entirely
+from avoiding heap allocation, not from this.)
 
 One caveat either way: like `pop_back()`, `erase()` only lowers the element count -- it doesn't
 destroy the now-unreachable last slot. For a non-trivial `T` holding a resource, that resource
