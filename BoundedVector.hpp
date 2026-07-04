@@ -16,12 +16,6 @@
  * limitations under the License.
  */
 
-/*
-
-A lightweight Vector object that does not draw from the heap
-
-*/
-
 #include <cstring>
 #include <stdexcept>
 #include <type_traits>
@@ -55,6 +49,22 @@ A lightweight Vector object that does not draw from the heap
 	#endif
 #endif
 
+/**
+ * @brief A fixed-capacity, non-heap-allocating vector-like container.
+ *
+ * Capacity is a compile-time constant (@p M): the backing storage is a plain array embedded
+ * directly in the object, so constructing, copying, and destroying a BoundedVector never
+ * allocates. Element access, iteration, and mutation are modeled closely on std::vector, and
+ * BoundedVector can often be used as a drop-in replacement for the common subset of that API --
+ * see the README for the full rationale and a performance comparison.
+ *
+ * @tparam T Element type. Must be default-constructible; insert_at()/erase_at() (and therefore
+ * the iterator-based insert()/erase(), which delegate to them) additionally require T to be
+ * move/copy-assignable, and use a bulk memmove() instead of a per-element loop when T is also
+ * trivially copyable.
+ * @tparam M Capacity: the maximum number of elements this BoundedVector can ever hold, fixed at
+ * compile time. Exceeding it throws std::length_error rather than reallocating.
+ */
 template<typename T, short M>
 class BoundedVector {
 	// components (the full M-slot array) is default-initialized on entry to every constructor
@@ -66,33 +76,68 @@ class BoundedVector {
 	static_assert(std::is_default_constructible_v<T>, "BoundedVector requires a default-constructible T");
 
 public:
+	/// Plain T*; there's no separate iterator type, since the backing storage is already a
+	/// contiguous array.
 	using iterator = T*;
+	/// Plain const T*; see iterator.
 	using const_iterator = const T*;
 
+	/**
+	 * @brief Constructs an empty BoundedVector.
+	 */
 	constexpr BoundedVector() : components{}, count(0) {}
 
-	// explicit, like std::vector(size_type): otherwise a bare int/short implicitly converts to
-	// a whole BoundedVector wherever one is expected, which is surprising on its own and, worse,
-	// can silently steal overload resolution from other constructors (e.g. a braced-init-list
-	// of ints binding as "one BoundedVector per int" instead of "one BoundedVector holding these
-	// ints" when inserting into a container of BoundedVector).
+	/**
+	 * @brief Constructs with count value-initialized elements.
+	 *
+	 * explicit, like std::vector(size_type): otherwise a bare int/short implicitly converts to
+	 * a whole BoundedVector wherever one is expected, which is surprising on its own and, worse,
+	 * can silently steal overload resolution from other constructors (e.g. a braced-init-list
+	 * of ints binding as "one BoundedVector per int" instead of "one BoundedVector holding these
+	 * ints" when inserting into a container of BoundedVector).
+	 *
+	 * @param count Number of elements to value-initialize.
+	 * @throws std::length_error If @p count exceeds capacity M.
+	 */
 	explicit constexpr BoundedVector(short count) : count(count) {
 		throw_if<std::length_error>(count > M, "BoundedVector overflow");
 		for(short index = 0; index < count; ++index)
 			components[index] = T{};
 	}
 
+	/**
+	 * @brief Constructs with count copies of fillValue.
+	 *
+	 * explicit for the same reason as BoundedVector(short) above.
+	 *
+	 * @param count Number of copies to construct.
+	 * @param fillValue Value each element is copied from.
+	 * @throws std::length_error If @p count exceeds capacity M.
+	 */
 	explicit constexpr BoundedVector(short count, T fillValue) : count(count) {
 		throw_if<std::length_error>(count > M, "BoundedVector overflow");
 		for(short index = 0; index < count; ++index)
 			components[index] = fillValue;
 	}
 
+	/**
+	 * @brief Constructs from a brace-init list, e.g. `BoundedVector<int, 4>{1, 2, 3}`.
+	 *
+	 * @param values Elements to copy in, in order.
+	 * @throws std::length_error If @p values has more elements than capacity M.
+	 */
 	constexpr BoundedVector(std::initializer_list<T> values) {
 		reconfigure(std::begin(values), std::end(values));
 	}
 
-	// Updates
+	/**
+	 * @brief Replaces the contents with the range [begin, end), discarding whatever was there.
+	 *
+	 * @tparam It Input iterator type.
+	 * @param begin Start of the replacement range.
+	 * @param end End of the replacement range.
+	 * @throws std::length_error If the range has more elements than capacity M.
+	 */
 	template<class It>
 	void reconfigure(It begin, It end) {
 		count = 0;
@@ -100,13 +145,28 @@ public:
 			push_back(*iterator);
 	}
 
+	/**
+	 * @brief Appends a copy of item.
+	 *
+	 * @param item Value to copy in.
+	 * @throws std::length_error If already at capacity M.
+	 */
 	constexpr inline void push_back(const T& item) {
 		throw_if<std::length_error>(count >= M, "BoundedVector overflow");
 		components[count++] = item;
 	}
 
-	// Constructs T from args (or
-	// default-constructs it, given none), matching std::vector::emplace_back().
+	/**
+	 * @brief Constructs an element in place at the end and returns a reference to it.
+	 *
+	 * Constructs T from args (or default-constructs it, given none), matching
+	 * std::vector::emplace_back().
+	 *
+	 * @tparam Args Constructor argument types.
+	 * @param args Arguments forwarded to T's constructor.
+	 * @return Reference to the newly constructed element.
+	 * @throws std::length_error If already at capacity M.
+	 */
 	template<class... Args>
 	constexpr inline T& emplace_back(Args&&... args) {
 		throw_if<std::length_error>(count >= M, "BoundedVector overflow");
@@ -114,18 +174,33 @@ public:
 		return components[count++];
 	}
 
+	/**
+	 * @brief Removes the last element.
+	 *
+	 * @throws std::out_of_range If the vector is empty.
+	 */
 	constexpr inline void pop_back() {
 		throw_if<std::out_of_range>(count == 0, "BoundedVector pop_back on empty vector");
 		--count;
 	}
 
+	/**
+	 * @brief Removes all elements, leaving size() == 0.
+	 */
 	constexpr inline void clear() {
 		count = 0;
 	}
 
-	// Grows or shrinks to newCount; elements added by growing are value-initialized, same as
-	// std::vector::resize(). Shrinking, like erase()/pop_back(), just lowers count -- it doesn't
-	// clear the now-unused tail.
+	/**
+	 * @brief Grows or shrinks to newCount elements.
+	 *
+	 * Elements added by growing are value-initialized, same as std::vector::resize(). Shrinking,
+	 * like erase()/erase_at()/pop_back(), just lowers count -- it doesn't clear the now-unused
+	 * tail.
+	 *
+	 * @param newCount Desired element count.
+	 * @throws std::length_error If @p newCount exceeds capacity M.
+	 */
 	constexpr inline void resize(short newCount) {
 		throw_if<std::length_error>(newCount > M, "BoundedVector overflow");
 		for(short index = count; index < newCount; ++index)
@@ -133,14 +208,23 @@ public:
 		count = newCount;
 	}
 
-	// Takes item by value rather than by reference: the shift below moves the backing storage,
-	// which would silently invalidate a reference into this same vector (e.g. insert_at(i,
-	// vector[j])) before it gets read.
-	//
-	// Named insert_at() rather than overloading insert() on (unsigned int, T): a literal 0 is
-	// simultaneously a valid index and a valid null-pointer-constant const_iterator, so an
-	// (unsigned int, T) overload and an (const_iterator, const T&) overload below would make
-	// insert(0, item) ambiguous.
+	/**
+	 * @brief Inserts item at index, shifting later elements over.
+	 *
+	 * Takes item by value rather than by reference: the shift below moves the backing storage,
+	 * which would silently invalidate a reference into this same vector (e.g. `insert_at(i,
+	 * vector[j])`) before it gets read.
+	 *
+	 * Named insert_at() rather than overloading insert() on (unsigned int, T): a literal 0 is
+	 * simultaneously a valid index and a valid null-pointer-constant const_iterator, so an
+	 * (unsigned int, T) overload and the (const_iterator, const T&) overload below would make
+	 * `insert(0, item)` ambiguous.
+	 *
+	 * @param index Position to insert at, in [0, size()].
+	 * @param item Value to insert.
+	 * @throws std::out_of_range If @p index > size().
+	 * @throws std::length_error If already at capacity M and @p index != size().
+	 */
 	constexpr inline void insert_at(unsigned int index, T item) {
 		throw_if<std::out_of_range>(index > count, "BoundedVector insert index out of range");
 		if(index == count)
@@ -160,13 +244,20 @@ public:
 		}
 	}
 
-	// Note for non-trivial T: like pop_back(), this only lowers count -- it doesn't destroy the
-	// now-unreachable last element, so any resources it holds aren't released until that slot is
-	// next overwritten (by push_back/insert_at/resize growing back into it) or the vector itself
-	// is destroyed.
-	//
-	// Named erase_at() to match insert_at() -- see its comment for why it isn't an overload of
-	// erase() taking an index.
+	/**
+	 * @brief Removes the element at index, shifting later elements down.
+	 *
+	 * Note for non-trivial T: like pop_back(), this only lowers count -- it doesn't destroy the
+	 * now-unreachable last element, so any resources it holds aren't released until that slot is
+	 * next overwritten (by push_back()/insert_at()/resize() growing back into it) or the vector
+	 * itself is destroyed.
+	 *
+	 * Named erase_at() to match insert_at() -- see its doc comment for why it isn't an overload
+	 * of erase() taking an index.
+	 *
+	 * @param index Position to remove, in [0, size()).
+	 * @throws std::out_of_range If @p index >= size().
+	 */
 	constexpr inline void erase_at(unsigned int index) {
 		throw_if<std::out_of_range>(index >= count, "BoundedVector erase index out of range");
 		if(index != count - 1) {
@@ -179,54 +270,158 @@ public:
 		count--;
 	}
 
-	// iterator-based insert()/erase(), matching std::vector's own signatures. Cheap to support
-	// since our iterators are already plain pointers into components -- pos - begin() recovers
-	// the index insert_at()/erase_at() need, and the result is just begin() + that same index.
+	/**
+	 * @brief Inserts item before pos, matching std::vector::insert().
+	 *
+	 * Cheap to support since iterator is already a plain pointer into components: `pos -
+	 * begin()` recovers the index insert_at() needs, and the result is just `begin() + that
+	 * same index`.
+	 *
+	 * @param pos Position to insert before.
+	 * @param item Value to insert.
+	 * @return Iterator to the newly inserted element.
+	 * @throws std::out_of_range If @p pos is out of range.
+	 * @throws std::length_error If already at capacity M and @p pos != end().
+	 */
 	constexpr inline iterator insert(const_iterator pos, const T& item) {
 		auto index = static_cast<unsigned int>(pos - begin());
 		insert_at(index, item);
 		return begin() + index;
 	}
 
+	/**
+	 * @brief Removes the element at pos, matching std::vector::erase().
+	 *
+	 * @param pos Position to remove.
+	 * @return Iterator to the element that followed the removed one (== end() if the last
+	 * element was removed).
+	 * @throws std::out_of_range If @p pos is out of range.
+	 */
 	constexpr inline iterator erase(const_iterator pos) {
 		auto index = static_cast<unsigned int>(pos - begin());
 		erase_at(index);
 		return begin() + index;
 	}
 
-	// Access
+	/**
+	 * @brief Unchecked element access, matching std::vector::operator[]. Out-of-range @p index
+	 * is undefined behavior.
+	 *
+	 * @param index Position to access, expected to be in [0, size()).
+	 * @return Reference to the element at @p index.
+	 */
 	constexpr T& operator[](unsigned int index) {
 		return components[index];
 	}
+
+	/**
+	 * @brief const overload of operator[].
+	 */
 	constexpr const T& operator[](unsigned int index) const {
 		return components[index];
 	}
+
+	/**
+	 * @brief Bounds-checked element access, matching std::vector::at().
+	 *
+	 * @param index Position to access.
+	 * @return Reference to the element at @p index.
+	 * @throws std::out_of_range If @p index >= size().
+	 */
 	constexpr T& at(unsigned int index) {
 		throw_if<std::out_of_range>(index >= count, "BoundedVector at index out of range");
 		return components[index];
 	}
+
+	/**
+	 * @brief const overload of at().
+	 *
+	 * @throws std::out_of_range If @p index >= size().
+	 */
 	constexpr const T& at(unsigned int index) const {
 		throw_if<std::out_of_range>(index >= count, "BoundedVector at index out of range");
 		return components[index];
 	}
+
+	/**
+	 * @brief Iterator to the first element (== end() if empty).
+	 */
 	const constexpr T* begin() const { return components; }
+
+	/**
+	 * @brief Iterator one past the last element.
+	 */
 	const constexpr T* end() const { return components + count; }
+
+	/**
+	 * @brief Non-const overload of begin() const.
+	 */
 	constexpr T* begin() { return components; }
+
+	/**
+	 * @brief Non-const overload of end() const.
+	 */
 	constexpr T* end() { return components + count; }
+
+	/**
+	 * @brief Pointer to the underlying contiguous storage.
+	 *
+	 * `data()[0]` through `data()[size() - 1]` are valid; nothing is guaranteed about the
+	 * remaining capacity() - size() slots.
+	 */
 	const constexpr T* data() const { return components; }
+
+	/**
+	 * @brief Non-const overload of data() const.
+	 */
 	constexpr T* data() { return components; }
+
+	/**
+	 * @brief True if size() == 0.
+	 */
 	constexpr bool empty() const { return count == 0; }
+
+	/**
+	 * @brief Current number of elements.
+	 */
 	constexpr short size() const { return count; }
+
+	/**
+	 * @brief Maximum number of elements this BoundedVector can ever hold -- the template
+	 * parameter M.
+	 */
 	constexpr short capacity() const { return M; }
+
+	/**
+	 * @brief First element. Undefined behavior if empty, matching std::vector::front().
+	 */
 	constexpr const T& front() const { return components[0]; }
+
+	/**
+	 * @brief Non-const overload of front() const.
+	 */
 	constexpr T& front() { return components[0]; }
+
+	/**
+	 * @brief Last element. Undefined behavior if empty, matching std::vector::back().
+	 */
 	constexpr const T& back() const {
 		return components[count - 1];
 	}
+
+	/**
+	 * @brief Non-const overload of back() const.
+	 */
 	constexpr T& back() {
 		return components[count - 1];
 	}
 
+	/**
+	 * @brief Hash functor for use as a key in std::unordered_map/std::unordered_set.
+	 *
+	 * Only combines the first size() elements -- consistent with Equal, which only compares
+	 * that same range, regardless of capacity M or whatever's left in the unused tail.
+	 */
 	struct Hash {
 		size_t operator()(const BoundedVector& other) const {
 			size_t hash = 0;
@@ -236,6 +431,12 @@ public:
 		}
 	};
 
+	/**
+	 * @brief Equality functor for use alongside Hash as a key in
+	 * std::unordered_map/std::unordered_set.
+	 *
+	 * Compares size() and then the first size() elements of each side; matches operator==.
+	 */
 	struct Equal {
 		bool operator()(const BoundedVector& lhs, const BoundedVector& rhs) const {
 			if(lhs.count != rhs.count)
@@ -247,7 +448,14 @@ public:
 		}
 	};
 
+	/**
+	 * @brief True if both vectors have the same size() and equal elements in [0, size()).
+	 */
 	constexpr bool operator==(const BoundedVector& other) const { return Equal{}(*this, other); }
+
+	/**
+	 * @brief Negation of operator==.
+	 */
 	constexpr bool operator!=(const BoundedVector& other) const { return !(*this == other); }
 
 private:

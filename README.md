@@ -57,7 +57,6 @@ See [Fixed capacity](#fixed-capacity) below.
 | `iterator`, `const_iterator` | Plain `T*`/`const T*` -- there's no separate iterator type, since the backing storage is already a contiguous array. |
 | `push_back(item)` | Appends a copy. |
 | `emplace_back(args...)` | Constructs `T(args...)` in place (or default-constructs, given no args) and returns a reference to it. |
-| `push()` | Reserves the next slot and returns a reference to it *without* constructing anything -- cheaper than `emplace_back()` for trivial `T`, but leaves the slot's prior contents as-is. |
 | `pop_back()` | Removes the last element. |
 | `insert(pos, item)` | Inserts before iterator `pos`, matching `std::vector::insert()`; returns an iterator to the inserted element. |
 | `erase(pos)` | Removes the element at iterator `pos`, matching `std::vector::erase()`; returns an iterator to the next element. |
