@@ -47,6 +47,14 @@ A lightweight Vector object that does not draw from the heap
 
 template<typename T, short M>
 class MiniVector {
+	// components (the full M-slot array) is default-initialized on entry to every constructor
+	// that doesn't explicitly list it in its member-initializer list -- which is all of them
+	// except the default constructor below -- so T must be default-constructible to construct
+	// a MiniVector at all, not just to use the default/sized constructors or resize(). Asserted
+	// here so that requirement is a clear, intentional message instead of a confusing compiler
+	// error blaming whichever constructor happens to be instantiated first.
+	static_assert(std::is_default_constructible_v<T>, "MiniVector requires a default-constructible T");
+
 public:
 	constexpr MiniVector() : components{}, count(0) {}
 
