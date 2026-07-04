@@ -66,6 +66,9 @@ class BoundedVector {
 	static_assert(std::is_default_constructible_v<T>, "BoundedVector requires a default-constructible T");
 
 public:
+	using iterator = T*;
+	using const_iterator = const T*;
+
 	constexpr BoundedVector() : components{}, count(0) {}
 
 	// explicit, like std::vector(size_type): otherwise a bare int/short implicitly converts to
@@ -131,9 +134,14 @@ public:
 	}
 
 	// Takes item by value rather than by reference: the shift below moves the backing storage,
-	// which would silently invalidate a reference into this same vector (e.g. insert(i,
+	// which would silently invalidate a reference into this same vector (e.g. insert_at(i,
 	// vector[j])) before it gets read.
-	constexpr inline void insert(unsigned int index, T item) {
+	//
+	// Named insert_at() rather than overloading insert() on (unsigned int, T): a literal 0 is
+	// simultaneously a valid index and a valid null-pointer-constant const_iterator, so an
+	// (unsigned int, T) overload and an (const_iterator, const T&) overload below would make
+	// insert(0, item) ambiguous.
+	constexpr inline void insert_at(unsigned int index, T item) {
 		throw_if<std::out_of_range>(index > count, "BoundedVector insert index out of range");
 		if(index == count)
 			push_back(item);
@@ -154,9 +162,12 @@ public:
 
 	// Note for non-trivial T: like pop_back(), this only lowers count -- it doesn't destroy the
 	// now-unreachable last element, so any resources it holds aren't released until that slot is
-	// next overwritten (by push_back/insert/resize growing back into it) or the vector itself is
-	// destroyed.
-	constexpr inline void erase(unsigned int index) {
+	// next overwritten (by push_back/insert_at/resize growing back into it) or the vector itself
+	// is destroyed.
+	//
+	// Named erase_at() to match insert_at() -- see its comment for why it isn't an overload of
+	// erase() taking an index.
+	constexpr inline void erase_at(unsigned int index) {
 		throw_if<std::out_of_range>(index >= count, "BoundedVector erase index out of range");
 		if(index != count - 1) {
 			if constexpr (std::is_trivially_copyable_v<T>)
@@ -166,6 +177,21 @@ public:
 					components[i] = std::move(components[i + 1]);
 		}
 		count--;
+	}
+
+	// iterator-based insert()/erase(), matching std::vector's own signatures. Cheap to support
+	// since our iterators are already plain pointers into components -- pos - begin() recovers
+	// the index insert_at()/erase_at() need, and the result is just begin() + that same index.
+	constexpr inline iterator insert(const_iterator pos, const T& item) {
+		auto index = static_cast<unsigned int>(pos - begin());
+		insert_at(index, item);
+		return begin() + index;
+	}
+
+	constexpr inline iterator erase(const_iterator pos) {
+		auto index = static_cast<unsigned int>(pos - begin());
+		erase_at(index);
+		return begin() + index;
 	}
 
 	// Access

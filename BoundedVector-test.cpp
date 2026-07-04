@@ -57,21 +57,21 @@ TEST_CASE( "Fill constructor fills every element, not just the first" ) {
 		CHECK(value == 7);
 }
 
-TEST_CASE( "push_back, insert, erase, clear" ) {
+TEST_CASE( "push_back, insert_at, erase_at, clear" ) {
 	BoundedVector<int, 4> vector;
 	vector.push_back(1);
 	vector.push_back(2);
 	vector.push_back(3);
 	CHECK(vector.size() == 3);
 
-	vector.insert(1, 99);
+	vector.insert_at(1, 99);
 	CHECK(vector.size() == 4);
 	CHECK(vector[0] == 1);
 	CHECK(vector[1] == 99);
 	CHECK(vector[2] == 2);
 	CHECK(vector[3] == 3);
 
-	vector.erase(0);
+	vector.erase_at(0);
 	CHECK(vector.size() == 3);
 	CHECK(vector[0] == 99);
 	CHECK(vector[1] == 2);
@@ -81,16 +81,16 @@ TEST_CASE( "push_back, insert, erase, clear" ) {
 	CHECK(vector.empty());
 }
 
-TEST_CASE( "insert at the end behaves like push_back" ) {
+TEST_CASE( "insert_at the end behaves like push_back" ) {
 	BoundedVector<int, 4> vector = {1, 2};
-	vector.insert(2, 3);
+	vector.insert_at(2, 3);
 	CHECK(vector.size() == 3);
 	CHECK(vector[2] == 3);
 }
 
-TEST_CASE( "insert survives its source aliasing the vector itself" ) {
+TEST_CASE( "insert_at survives its source aliasing the vector itself" ) {
 	BoundedVector<int, 4> vector = {1, 2, 3};
-	vector.insert(1, vector[2]);
+	vector.insert_at(1, vector[2]);
 	CHECK(vector.size() == 4);
 	CHECK(vector[0] == 1);
 	CHECK(vector[1] == 3);
@@ -98,9 +98,38 @@ TEST_CASE( "insert survives its source aliasing the vector itself" ) {
 	CHECK(vector[3] == 3);
 }
 
-TEST_CASE( "erase at the last index doesn't need to shift anything" ) {
+TEST_CASE( "iterator-based insert() matches std::vector's signature" ) {
+	BoundedVector<int, 5> vector = {1, 2, 3};
+
+	BoundedVector<int, 5>::iterator result = vector.insert(vector.begin() + 1, 99);
+	CHECK(vector.size() == 4);
+	CHECK(vector[0] == 1);
+	CHECK(vector[1] == 99);
+	CHECK(vector[2] == 2);
+	CHECK(vector[3] == 3);
+	CHECK(result == vector.begin() + 1);
+	CHECK(*result == 99);
+
+	// At the very end, same as insert_at(size(), item).
+	auto endResult = vector.insert(vector.end(), 7);
+	CHECK(vector.back() == 7);
+	CHECK(endResult == vector.end() - 1);
+}
+
+TEST_CASE( "iterator-based erase() matches std::vector's signature" ) {
 	BoundedVector<int, 4> vector = {1, 2, 3};
-	vector.erase(2);
+
+	BoundedVector<int, 4>::iterator result = vector.erase(vector.begin());
+	CHECK(vector.size() == 2);
+	CHECK(vector[0] == 2);
+	CHECK(vector[1] == 3);
+	CHECK(result == vector.begin());
+	CHECK(*result == 2);
+}
+
+TEST_CASE( "erase_at the last index doesn't need to shift anything" ) {
+	BoundedVector<int, 4> vector = {1, 2, 3};
+	vector.erase_at(2);
 	CHECK(vector.size() == 2);
 	CHECK(vector[0] == 1);
 	CHECK(vector[1] == 2);
@@ -232,8 +261,8 @@ TEST_CASE( "Hash and Equal agree for vectors with the same logical contents" ) {
 	BoundedVector<int, 4> b;
 	b.push_back(5);
 	b.push_back(5);
-	b.insert(0, 9);
-	b.erase(0);
+	b.insert_at(0, 9);
+	b.erase_at(0);
 
 	BoundedVector<int, 4>::Equal equal;
 	BoundedVector<int, 4>::Hash hash;
@@ -257,33 +286,33 @@ TEST_CASE( "initializer_list construction" ) {
 	CHECK(vector[2] == 3);
 }
 
-TEST_CASE( "insert and erase move-shift a non-trivially-copyable T correctly" ) {
+TEST_CASE( "insert_at and erase_at move-shift a non-trivially-copyable T correctly" ) {
 	BoundedVector<std::string, 4> vector;
 	vector.push_back("a");
 	vector.push_back("b");
 	vector.push_back("c");
 
-	vector.insert(1, std::string("x"));
+	vector.insert_at(1, std::string("x"));
 	CHECK(vector.size() == 4);
 	CHECK(vector[0] == "a");
 	CHECK(vector[1] == "x");
 	CHECK(vector[2] == "b");
 	CHECK(vector[3] == "c");
 
-	vector.erase(0);
+	vector.erase_at(0);
 	CHECK(vector.size() == 3);
 	CHECK(vector[0] == "x");
 	CHECK(vector[1] == "b");
 	CHECK(vector[2] == "c");
 }
 
-TEST_CASE( "insert survives self-aliasing for a non-trivially-copyable T too" ) {
+TEST_CASE( "insert_at survives self-aliasing for a non-trivially-copyable T too" ) {
 	BoundedVector<std::string, 4> vector;
 	vector.push_back("a");
 	vector.push_back("b");
 	vector.push_back("c");
 
-	vector.insert(1, vector[2]);
+	vector.insert_at(1, vector[2]);
 	CHECK(vector.size() == 4);
 	CHECK(vector[0] == "a");
 	CHECK(vector[1] == "c");
@@ -299,7 +328,7 @@ TEST_CASE( "Exceeding capacity throws std::length_error" ) {
 	CHECK_THROWS_AS(vector.push_back(3), std::length_error);
 	CHECK_THROWS_AS(vector.emplace_back(3), std::length_error);
 	CHECK_THROWS_AS(vector.resize(3), std::length_error);
-	CHECK_THROWS_AS(vector.insert(0, 3), std::length_error);
+	CHECK_THROWS_AS(vector.insert_at(0, 3), std::length_error);
 
 	// The vector is untouched by a failed mutation -- these all throw before touching count.
 	CHECK(vector.size() == 2);
@@ -310,8 +339,8 @@ TEST_CASE( "Out-of-range access and empty-vector removal throw std::out_of_range
 
 	CHECK_THROWS_AS(vector.at(3), std::out_of_range);
 	CHECK_THROWS_AS(std::as_const(vector).at(3), std::out_of_range);
-	CHECK_THROWS_AS(vector.insert(4, 99), std::out_of_range);
-	CHECK_THROWS_AS(vector.erase(3), std::out_of_range);
+	CHECK_THROWS_AS(vector.insert_at(4, 99), std::out_of_range);
+	CHECK_THROWS_AS(vector.erase_at(3), std::out_of_range);
 
 	BoundedVector<int, 4> empty;
 	CHECK_THROWS_AS(empty.pop_back(), std::out_of_range);
