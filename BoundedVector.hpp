@@ -23,25 +23,35 @@ A lightweight Vector object that does not draw from the heap
 */
 
 #include <cstring>
+#include <stdexcept>
 #include <type_traits>
 #include <utility>
 
 // Ensure.hpp is an optional dependency: if it's available (either as part of this
-// checkout or vendored alongside this header), use its ensure() for a formatted
-// diagnostic on failure; otherwise fall back to plain assert() so this header still
-// works standalone.
+// checkout or vendored alongside this header), use its throw_if() for input
+// validation; otherwise fall back to an equivalent local implementation so this
+// header still works standalone. Unlike ensure() (this codebase's usual choice for
+// "should never happen" internal invariants), every check in this header validates
+// caller-supplied input (an index, a requested size) that a caller may legitimately
+// want to catch and recover from -- matching std::vector::at()'s own throwing
+// contract -- so throw_if() rather than ensure() is used throughout.
 #if __has_include("commons/Ensure.hpp")
 	#include "commons/Ensure.hpp"
 #elif __has_include("Ensure.hpp")
 	#include "Ensure.hpp"
 #else
-	#include <cassert>
 	// Guard against Ensure.hpp having already been included under a path our
 	// __has_include checks above don't know about (e.g. vendored elsewhere as
 	// "3rdparty/Ensure.hpp") -- COMMONS_ENSURE_HPP is defined by Ensure.hpp
 	// itself, so this still catches that case even under an unknown filename.
-	#if !defined(COMMONS_ENSURE_HPP) && !defined(ensure)
-		#define ensure(condition, ...) assert((condition))
+	// (throw_if is a function template, not a macro, so #ifndef can't guard
+	// it directly -- redefining it without this check would be a hard error.)
+	#ifndef COMMONS_ENSURE_HPP
+	template<class T, class... Args>
+	constexpr inline void throw_if(bool condition, Args&&... args) {
+		if (condition)
+			throw T(std::forward<Args>(args)...);
+	}
 	#endif
 #endif
 
@@ -64,13 +74,13 @@ public:
 	// of ints binding as "one BoundedVector per int" instead of "one BoundedVector holding these
 	// ints" when inserting into a container of BoundedVector).
 	explicit constexpr BoundedVector(short count) : count(count) {
-		ensure(count <= M, "BoundedVector overflow");
+		throw_if<std::length_error>(count > M, "BoundedVector overflow");
 		for(short index = 0; index < count; ++index)
 			components[index] = T{};
 	}
 
 	explicit constexpr BoundedVector(short count, T fillValue) : count(count) {
-		ensure(count <= M, "BoundedVector overflow");
+		throw_if<std::length_error>(count > M, "BoundedVector overflow");
 		for(short index = 0; index < count; ++index)
 			components[index] = fillValue;
 	}
@@ -88,7 +98,7 @@ public:
 	}
 
 	constexpr inline void push_back(const T& item) {
-		ensure(count < M, "BoundedVector overflow");
+		throw_if<std::length_error>(count >= M, "BoundedVector overflow");
 		components[count++] = item;
 	}
 
@@ -96,13 +106,13 @@ public:
 	// default-constructs it, given none), matching std::vector::emplace_back().
 	template<class... Args>
 	constexpr inline T& emplace_back(Args&&... args) {
-		ensure(count < M, "BoundedVector overflow");
+		throw_if<std::length_error>(count >= M, "BoundedVector overflow");
 		components[count] = T(std::forward<Args>(args)...);
 		return components[count++];
 	}
 
 	constexpr inline void pop_back() {
-		ensure(count > 0, "BoundedVector pop_back on empty vector");
+		throw_if<std::out_of_range>(count == 0, "BoundedVector pop_back on empty vector");
 		--count;
 	}
 
@@ -114,7 +124,7 @@ public:
 	// std::vector::resize(). Shrinking, like erase()/pop_back(), just lowers count -- it doesn't
 	// clear the now-unused tail.
 	constexpr inline void resize(short newCount) {
-		ensure(newCount <= M, "BoundedVector overflow");
+		throw_if<std::length_error>(newCount > M, "BoundedVector overflow");
 		for(short index = count; index < newCount; ++index)
 			components[index] = T{};
 		count = newCount;
@@ -124,11 +134,11 @@ public:
 	// which would silently invalidate a reference into this same vector (e.g. insert(i,
 	// vector[j])) before it gets read.
 	constexpr inline void insert(unsigned int index, T item) {
-		ensure(index <= count, "BoundedVector insert index out of range");
+		throw_if<std::out_of_range>(index > count, "BoundedVector insert index out of range");
 		if(index == count)
 			push_back(item);
 		else {
-			ensure(count < M, "BoundedVector overflow");
+			throw_if<std::length_error>(count >= M, "BoundedVector overflow");
 			// memmove is a bulk byte copy -- only safe when T is trivially copyable. For
 			// anything else (e.g. a type owning a resource), fall back to shifting one element
 			// at a time via move-assignment, which respects T's real move semantics.
@@ -147,7 +157,7 @@ public:
 	// next overwritten (by push_back/insert/resize growing back into it) or the vector itself is
 	// destroyed.
 	constexpr inline void erase(unsigned int index) {
-		ensure(index < count, "BoundedVector erase index out of range");
+		throw_if<std::out_of_range>(index >= count, "BoundedVector erase index out of range");
 		if(index != count - 1) {
 			if constexpr (std::is_trivially_copyable_v<T>)
 				memmove(components + index, components + index + 1, (count - index - 1) * sizeof(T));
@@ -166,11 +176,11 @@ public:
 		return components[index];
 	}
 	constexpr T& at(unsigned int index) {
-		ensure(index < count, "BoundedVector at index out of range");
+		throw_if<std::out_of_range>(index >= count, "BoundedVector at index out of range");
 		return components[index];
 	}
 	constexpr const T& at(unsigned int index) const {
-		ensure(index < count, "BoundedVector at index out of range");
+		throw_if<std::out_of_range>(index >= count, "BoundedVector at index out of range");
 		return components[index];
 	}
 	const constexpr T* begin() const { return components; }

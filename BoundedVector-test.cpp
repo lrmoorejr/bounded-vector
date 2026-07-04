@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 
+#include <stdexcept>
 #include <string>
 #include <unordered_set>
+#include <utility>
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/benchmark/catch_benchmark.hpp>
@@ -287,6 +289,32 @@ TEST_CASE( "insert survives self-aliasing for a non-trivially-copyable T too" ) 
 	CHECK(vector[1] == "c");
 	CHECK(vector[2] == "b");
 	CHECK(vector[3] == "c");
+}
+
+TEST_CASE( "Exceeding capacity throws std::length_error" ) {
+	CHECK_THROWS_AS((BoundedVector<int, 4>(5)), std::length_error);
+	CHECK_THROWS_AS((BoundedVector<int, 4>(5, 0)), std::length_error);
+
+	BoundedVector<int, 2> vector = {1, 2};
+	CHECK_THROWS_AS(vector.push_back(3), std::length_error);
+	CHECK_THROWS_AS(vector.emplace_back(3), std::length_error);
+	CHECK_THROWS_AS(vector.resize(3), std::length_error);
+	CHECK_THROWS_AS(vector.insert(0, 3), std::length_error);
+
+	// The vector is untouched by a failed mutation -- these all throw before touching count.
+	CHECK(vector.size() == 2);
+}
+
+TEST_CASE( "Out-of-range access and empty-vector removal throw std::out_of_range" ) {
+	BoundedVector<int, 4> vector = {1, 2, 3};
+
+	CHECK_THROWS_AS(vector.at(3), std::out_of_range);
+	CHECK_THROWS_AS(std::as_const(vector).at(3), std::out_of_range);
+	CHECK_THROWS_AS(vector.insert(4, 99), std::out_of_range);
+	CHECK_THROWS_AS(vector.erase(3), std::out_of_range);
+
+	BoundedVector<int, 4> empty;
+	CHECK_THROWS_AS(empty.pop_back(), std::out_of_range);
 }
 
 TEST_CASE( "BoundedVector vs std::vector: construct/fill/destroy churn" ) {

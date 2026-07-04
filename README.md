@@ -8,8 +8,8 @@ buffer -- but as a single, dependency-free header instead of part of Boost.
 
 Built for code that constructs and destroys a lot of small vectors at high frequency, where
 `std::vector`'s heap allocation is the actual bottleneck: in a microbenchmark of building,
-filling, and destroying a 4-element vector in a tight loop, `BoundedVector` measured roughly 5x
-faster than a pre-`reserve()`d `std::vector`, and roughly 16x faster than a naively grown one. See
+filling, and destroying a 4-element vector in a tight loop, **`BoundedVector` measured roughly 17x
+faster than a pre-`reserve()`d `std::vector`, and roughly 50x faster than a naively grown one**. See
 [Performance](#performance) below.
 
 ```cpp
@@ -101,9 +101,9 @@ benchmark case):
 
 | Variant | Mean time |
 |---|---|
-| `std::vector<int>`, no `reserve()` | ~70-73 ns |
+| `std::vector<int>`, no `reserve()` | ~67-70 ns |
 | `std::vector<int>`, `reserve()`d up front | ~22-24 ns |
-| `BoundedVector<int, 4>` | ~4.4 ns |
+| `BoundedVector<int, 4>` | ~1.4 ns |
 
 `std::vector` pays a heap allocation (and, without `reserve()`, possibly more than one as it
 grows) on every pass through the loop; `BoundedVector` never allocates at all. This is the
