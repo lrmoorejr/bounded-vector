@@ -19,10 +19,10 @@
 #include <vector>
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/benchmark/catch_benchmark.hpp>
-#include "MiniVector.hpp"
+#include "BoundedVector.hpp"
 
 TEST_CASE( "Default construction is empty" ) {
-	MiniVector<int, 4> vector;
+	BoundedVector<int, 4> vector;
 	CHECK(vector.empty());
 	CHECK(vector.size() == 0);
 	CHECK(vector.capacity() == 4);
@@ -30,33 +30,33 @@ TEST_CASE( "Default construction is empty" ) {
 
 TEST_CASE( "Default construction works for a non-int-constructible trivially copyable T" ) {
 	struct Point { float x, y; };
-	MiniVector<Point, 4> vector;
+	BoundedVector<Point, 4> vector;
 	CHECK(vector.size() == 0);
 }
 
 TEST_CASE( "data() matches begin()" ) {
-	MiniVector<int, 4> vector = {1, 2, 3};
+	BoundedVector<int, 4> vector = {1, 2, 3};
 	CHECK(vector.data() == vector.begin());
 	vector.data()[0] = 10;
 	CHECK(vector[0] == 10);
 }
 
 TEST_CASE( "Sized constructor value-initializes exactly size elements" ) {
-	MiniVector<int, 4> vector(3);
+	BoundedVector<int, 4> vector(3);
 	CHECK(vector.size() == 3);
 	for(int value : vector)
 		CHECK(value == 0);
 }
 
 TEST_CASE( "Fill constructor fills every element, not just the first" ) {
-	MiniVector<int, 5> vector(4, 7);
+	BoundedVector<int, 5> vector(4, 7);
 	CHECK(vector.size() == 4);
 	for(int value : vector)
 		CHECK(value == 7);
 }
 
 TEST_CASE( "push_back, insert, erase, clear" ) {
-	MiniVector<int, 4> vector;
+	BoundedVector<int, 4> vector;
 	vector.push_back(1);
 	vector.push_back(2);
 	vector.push_back(3);
@@ -80,14 +80,14 @@ TEST_CASE( "push_back, insert, erase, clear" ) {
 }
 
 TEST_CASE( "insert at the end behaves like push_back" ) {
-	MiniVector<int, 4> vector = {1, 2};
+	BoundedVector<int, 4> vector = {1, 2};
 	vector.insert(2, 3);
 	CHECK(vector.size() == 3);
 	CHECK(vector[2] == 3);
 }
 
 TEST_CASE( "insert survives its source aliasing the vector itself" ) {
-	MiniVector<int, 4> vector = {1, 2, 3};
+	BoundedVector<int, 4> vector = {1, 2, 3};
 	vector.insert(1, vector[2]);
 	CHECK(vector.size() == 4);
 	CHECK(vector[0] == 1);
@@ -97,7 +97,7 @@ TEST_CASE( "insert survives its source aliasing the vector itself" ) {
 }
 
 TEST_CASE( "erase at the last index doesn't need to shift anything" ) {
-	MiniVector<int, 4> vector = {1, 2, 3};
+	BoundedVector<int, 4> vector = {1, 2, 3};
 	vector.erase(2);
 	CHECK(vector.size() == 2);
 	CHECK(vector[0] == 1);
@@ -105,7 +105,7 @@ TEST_CASE( "erase at the last index doesn't need to shift anything" ) {
 }
 
 TEST_CASE( "emplace_back constructs T from its arguments" ) {
-	MiniVector<int, 4> vector;
+	BoundedVector<int, 4> vector;
 	vector.emplace_back(42);
 	CHECK(vector.size() == 1);
 	CHECK(vector[0] == 42);
@@ -116,14 +116,14 @@ TEST_CASE( "emplace_back constructs T from its arguments" ) {
 }
 
 TEST_CASE( "pop_back shrinks by one" ) {
-	MiniVector<int, 4> vector = {1, 2, 3};
+	BoundedVector<int, 4> vector = {1, 2, 3};
 	vector.pop_back();
 	CHECK(vector.size() == 2);
 	CHECK(vector.back() == 2);
 }
 
 TEST_CASE( "resize grows with value-initialized elements and shrinks in place" ) {
-	MiniVector<int, 5> vector = {1, 2};
+	BoundedVector<int, 5> vector = {1, 2};
 	vector.resize(4);
 	CHECK(vector.size() == 4);
 	CHECK(vector[0] == 1);
@@ -137,7 +137,7 @@ TEST_CASE( "resize grows with value-initialized elements and shrinks in place" )
 }
 
 TEST_CASE( "front and back" ) {
-	MiniVector<int, 4> vector = {1, 2, 3};
+	BoundedVector<int, 4> vector = {1, 2, 3};
 	CHECK(vector.front() == 1);
 	CHECK(vector.back() == 3);
 	vector.front() = 10;
@@ -145,14 +145,14 @@ TEST_CASE( "front and back" ) {
 }
 
 TEST_CASE( "at() matches operator[] for in-range access" ) {
-	MiniVector<int, 4> vector = {1, 2, 3};
+	BoundedVector<int, 4> vector = {1, 2, 3};
 	CHECK(vector.at(1) == vector[1]);
 	vector.at(1) = 20;
 	CHECK(vector[1] == 20);
 }
 
 TEST_CASE( "const accessors" ) {
-	const MiniVector<int, 4> vector = {1, 2, 3};
+	const BoundedVector<int, 4> vector = {1, 2, 3};
 	CHECK(vector[1] == 2);
 	CHECK(vector.at(1) == 2);
 	CHECK(vector.front() == 1);
@@ -163,14 +163,14 @@ TEST_CASE( "const accessors" ) {
 }
 
 TEST_CASE( "copy construction and assignment are independent" ) {
-	MiniVector<int, 4> original = {1, 2, 3};
+	BoundedVector<int, 4> original = {1, 2, 3};
 
-	MiniVector<int, 4> copy = original;
+	BoundedVector<int, 4> copy = original;
 	copy[0] = 99;
 	CHECK(original[0] == 1);
 	CHECK(copy[0] == 99);
 
-	MiniVector<int, 4> assigned;
+	BoundedVector<int, 4> assigned;
 	assigned = original;
 	assigned.push_back(4);
 	CHECK(original.size() == 3);
@@ -178,7 +178,7 @@ TEST_CASE( "copy construction and assignment are independent" ) {
 }
 
 TEST_CASE( "filling to exactly capacity succeeds" ) {
-	MiniVector<int, 3> vector;
+	BoundedVector<int, 3> vector;
 	vector.push_back(1);
 	vector.push_back(2);
 	vector.push_back(3);
@@ -187,7 +187,7 @@ TEST_CASE( "filling to exactly capacity succeeds" ) {
 }
 
 TEST_CASE( "reconfigure replaces existing contents rather than appending" ) {
-	MiniVector<int, 4> vector = {1, 2, 3};
+	BoundedVector<int, 4> vector = {1, 2, 3};
 	int replacement[] = {9, 8};
 	vector.reconfigure(std::begin(replacement), std::end(replacement));
 	CHECK(vector.size() == 2);
@@ -196,7 +196,7 @@ TEST_CASE( "reconfigure replaces existing contents rather than appending" ) {
 }
 
 TEST_CASE( "Hash and Equal work as a real std::unordered_set key" ) {
-	using Key = MiniVector<int, 4>;
+	using Key = BoundedVector<int, 4>;
 	std::unordered_set<Key, Key::Hash, Key::Equal> set;
 	set.insert({1, 2});
 	set.insert({1, 2}); // duplicate, should not grow the set
@@ -209,8 +209,8 @@ TEST_CASE( "Hash and Equal work as a real std::unordered_set key" ) {
 }
 
 TEST_CASE( "operator== and operator!= compare only the logical elements" ) {
-	MiniVector<int, 4> a = {1, 2};
-	MiniVector<int, 4> b;
+	BoundedVector<int, 4> a = {1, 2};
+	BoundedVector<int, 4> b;
 	b.push_back(1);
 	b.push_back(2);
 	b.push_back(9);
@@ -219,44 +219,44 @@ TEST_CASE( "operator== and operator!= compare only the logical elements" ) {
 	CHECK(a == b);
 	CHECK_FALSE(a != b);
 
-	MiniVector<int, 4> c = {1, 3};
+	BoundedVector<int, 4> c = {1, 3};
 	CHECK(a != c);
 }
 
 TEST_CASE( "Hash and Equal agree for vectors with the same logical contents" ) {
 	// Built two different ways so their unused tail elements diverge -- Equal must still
 	// consider them equal since it only compares the first `size()` elements.
-	MiniVector<int, 4> a(2, 5);
-	MiniVector<int, 4> b;
+	BoundedVector<int, 4> a(2, 5);
+	BoundedVector<int, 4> b;
 	b.push_back(5);
 	b.push_back(5);
 	b.insert(0, 9);
 	b.erase(0);
 
-	MiniVector<int, 4>::Equal equal;
-	MiniVector<int, 4>::Hash hash;
+	BoundedVector<int, 4>::Equal equal;
+	BoundedVector<int, 4>::Hash hash;
 	CHECK(equal(a, b));
 	CHECK(hash(a) == hash(b));
 }
 
 TEST_CASE( "Equal distinguishes different sizes and different contents" ) {
-	MiniVector<int, 4>::Equal equal;
-	MiniVector<int, 4> a = {1, 2};
-	MiniVector<int, 4> b = {1, 2, 3};
-	MiniVector<int, 4> c = {1, 3};
+	BoundedVector<int, 4>::Equal equal;
+	BoundedVector<int, 4> a = {1, 2};
+	BoundedVector<int, 4> b = {1, 2, 3};
+	BoundedVector<int, 4> c = {1, 3};
 	CHECK_FALSE(equal(a, b));
 	CHECK_FALSE(equal(a, c));
 }
 
 TEST_CASE( "initializer_list construction" ) {
-	MiniVector<int, 4> vector = {1, 2, 3};
+	BoundedVector<int, 4> vector = {1, 2, 3};
 	CHECK(vector.size() == 3);
 	CHECK(vector[0] == 1);
 	CHECK(vector[2] == 3);
 }
 
 TEST_CASE( "insert and erase move-shift a non-trivially-copyable T correctly" ) {
-	MiniVector<std::string, 4> vector;
+	BoundedVector<std::string, 4> vector;
 	vector.push_back("a");
 	vector.push_back("b");
 	vector.push_back("c");
@@ -276,7 +276,7 @@ TEST_CASE( "insert and erase move-shift a non-trivially-copyable T correctly" ) 
 }
 
 TEST_CASE( "insert survives self-aliasing for a non-trivially-copyable T too" ) {
-	MiniVector<std::string, 4> vector;
+	BoundedVector<std::string, 4> vector;
 	vector.push_back("a");
 	vector.push_back("b");
 	vector.push_back("c");
@@ -289,12 +289,12 @@ TEST_CASE( "insert survives self-aliasing for a non-trivially-copyable T too" ) 
 	CHECK(vector[3] == "c");
 }
 
-TEST_CASE( "MiniVector vs std::vector: construct/fill/destroy churn" ) {
-	// The scenario MiniVector is for: a small, short-lived vector built and torn down at high
+TEST_CASE( "BoundedVector vs std::vector: construct/fill/destroy churn" ) {
+	// The scenario BoundedVector is for: a small, short-lived vector built and torn down at high
 	// frequency. std::vector pays a heap allocation (and, without reserve(), possibly more than
-	// one as it grows) every time through the loop; MiniVector never allocates at all.
+	// one as it grows) every time through the loop; BoundedVector never allocates at all.
 	//
-	// The capacity itself (4) has to be a real compile-time constant -- MiniVector's whole
+	// The capacity itself (4) has to be a real compile-time constant -- BoundedVector's whole
 	// design point is a fixed capacity known at compile time. But the *loop bound* is read
 	// through a volatile so the compiler can't see "always 4 iterations, sum is always 6" and
 	// fold the entire benchmark -- allocation included -- down to a constant.
@@ -322,8 +322,8 @@ TEST_CASE( "MiniVector vs std::vector: construct/fill/destroy churn" ) {
 		return sum;
 	};
 
-	BENCHMARK("MiniVector<int, 4>") {
-		MiniVector<int, Capacity> v;
+	BENCHMARK("BoundedVector<int, 4>") {
+		BoundedVector<int, Capacity> v;
 		for(int i = 0; i < n; ++i)
 			v.push_back(i);
 		int sum = 0;

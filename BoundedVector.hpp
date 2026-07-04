@@ -46,36 +46,36 @@ A lightweight Vector object that does not draw from the heap
 #endif
 
 template<typename T, short M>
-class MiniVector {
+class BoundedVector {
 	// components (the full M-slot array) is default-initialized on entry to every constructor
 	// that doesn't explicitly list it in its member-initializer list -- which is all of them
 	// except the default constructor below -- so T must be default-constructible to construct
-	// a MiniVector at all, not just to use the default/sized constructors or resize(). Asserted
+	// a BoundedVector at all, not just to use the default/sized constructors or resize(). Asserted
 	// here so that requirement is a clear, intentional message instead of a confusing compiler
 	// error blaming whichever constructor happens to be instantiated first.
-	static_assert(std::is_default_constructible_v<T>, "MiniVector requires a default-constructible T");
+	static_assert(std::is_default_constructible_v<T>, "BoundedVector requires a default-constructible T");
 
 public:
-	constexpr MiniVector() : components{}, count(0) {}
+	constexpr BoundedVector() : components{}, count(0) {}
 
 	// explicit, like std::vector(size_type): otherwise a bare int/short implicitly converts to
-	// a whole MiniVector wherever one is expected, which is surprising on its own and, worse,
+	// a whole BoundedVector wherever one is expected, which is surprising on its own and, worse,
 	// can silently steal overload resolution from other constructors (e.g. a braced-init-list
-	// of ints binding as "one MiniVector per int" instead of "one MiniVector holding these
-	// ints" when inserting into a container of MiniVector).
-	explicit constexpr MiniVector(short count) : count(count) {
-		ensure(count <= M, "MiniVector overflow");
+	// of ints binding as "one BoundedVector per int" instead of "one BoundedVector holding these
+	// ints" when inserting into a container of BoundedVector).
+	explicit constexpr BoundedVector(short count) : count(count) {
+		ensure(count <= M, "BoundedVector overflow");
 		for(short index = 0; index < count; ++index)
 			components[index] = T{};
 	}
 
-	explicit constexpr MiniVector(short count, T fillValue) : count(count) {
-		ensure(count <= M, "MiniVector overflow");
+	explicit constexpr BoundedVector(short count, T fillValue) : count(count) {
+		ensure(count <= M, "BoundedVector overflow");
 		for(short index = 0; index < count; ++index)
 			components[index] = fillValue;
 	}
 
-	constexpr MiniVector(std::initializer_list<T> values) {
+	constexpr BoundedVector(std::initializer_list<T> values) {
 		reconfigure(std::begin(values), std::end(values));
 	}
 
@@ -88,7 +88,7 @@ public:
 	}
 
 	constexpr inline void push_back(const T& item) {
-		ensure(count < M, "MiniVector overflow");
+		ensure(count < M, "BoundedVector overflow");
 		components[count++] = item;
 	}
 
@@ -96,13 +96,13 @@ public:
 	// default-constructs it, given none), matching std::vector::emplace_back().
 	template<class... Args>
 	constexpr inline T& emplace_back(Args&&... args) {
-		ensure(count < M, "MiniVector overflow");
+		ensure(count < M, "BoundedVector overflow");
 		components[count] = T(std::forward<Args>(args)...);
 		return components[count++];
 	}
 
 	constexpr inline void pop_back() {
-		ensure(count > 0, "MiniVector pop_back on empty vector");
+		ensure(count > 0, "BoundedVector pop_back on empty vector");
 		--count;
 	}
 
@@ -114,7 +114,7 @@ public:
 	// std::vector::resize(). Shrinking, like erase()/pop_back(), just lowers count -- it doesn't
 	// clear the now-unused tail.
 	constexpr inline void resize(short newCount) {
-		ensure(newCount <= M, "MiniVector overflow");
+		ensure(newCount <= M, "BoundedVector overflow");
 		for(short index = count; index < newCount; ++index)
 			components[index] = T{};
 		count = newCount;
@@ -124,11 +124,11 @@ public:
 	// which would silently invalidate a reference into this same vector (e.g. insert(i,
 	// vector[j])) before it gets read.
 	constexpr inline void insert(unsigned int index, T item) {
-		ensure(index <= count, "MiniVector insert index out of range");
+		ensure(index <= count, "BoundedVector insert index out of range");
 		if(index == count)
 			push_back(item);
 		else {
-			ensure(count < M, "MiniVector overflow");
+			ensure(count < M, "BoundedVector overflow");
 			// memmove is a bulk byte copy -- only safe when T is trivially copyable. For
 			// anything else (e.g. a type owning a resource), fall back to shifting one element
 			// at a time via move-assignment, which respects T's real move semantics.
@@ -147,7 +147,7 @@ public:
 	// next overwritten (by push_back/insert/resize growing back into it) or the vector itself is
 	// destroyed.
 	constexpr inline void erase(unsigned int index) {
-		ensure(index < count, "MiniVector erase index out of range");
+		ensure(index < count, "BoundedVector erase index out of range");
 		if(index != count - 1) {
 			if constexpr (std::is_trivially_copyable_v<T>)
 				memmove(components + index, components + index + 1, (count - index - 1) * sizeof(T));
@@ -166,11 +166,11 @@ public:
 		return components[index];
 	}
 	constexpr T& at(unsigned int index) {
-		ensure(index < count, "MiniVector at index out of range");
+		ensure(index < count, "BoundedVector at index out of range");
 		return components[index];
 	}
 	constexpr const T& at(unsigned int index) const {
-		ensure(index < count, "MiniVector at index out of range");
+		ensure(index < count, "BoundedVector at index out of range");
 		return components[index];
 	}
 	const constexpr T* begin() const { return components; }
@@ -192,7 +192,7 @@ public:
 	}
 
 	struct Hash {
-		size_t operator()(const MiniVector& other) const {
+		size_t operator()(const BoundedVector& other) const {
 			size_t hash = 0;
 			for(short index = 0; index < other.count; ++index)
 				hash += 5 * hash + other.components[index];
@@ -201,7 +201,7 @@ public:
 	};
 
 	struct Equal {
-		bool operator()(const MiniVector& lhs, const MiniVector& rhs) const {
+		bool operator()(const BoundedVector& lhs, const BoundedVector& rhs) const {
 			if(lhs.count != rhs.count)
 				return false;
 			for(short index = 0; index < lhs.count; ++index)
@@ -211,8 +211,8 @@ public:
 		}
 	};
 
-	constexpr bool operator==(const MiniVector& other) const { return Equal{}(*this, other); }
-	constexpr bool operator!=(const MiniVector& other) const { return !(*this == other); }
+	constexpr bool operator==(const BoundedVector& other) const { return Equal{}(*this, other); }
+	constexpr bool operator!=(const BoundedVector& other) const { return !(*this == other); }
 
 private:
 	T components[M];

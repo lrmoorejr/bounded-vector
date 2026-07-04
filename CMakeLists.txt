@@ -13,15 +13,15 @@
 # limitations under the License.
 
 cmake_minimum_required(VERSION 3.18)
-project(mini-vector VERSION 1.0.0 LANGUAGES CXX)
+project(bounded-vector VERSION 1.0.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 
 find_package(Catch2 3 REQUIRED)
 
-add_executable(MiniVector-test MiniVector-test.cpp MiniVector.hpp)
-target_link_libraries(MiniVector-test PRIVATE Catch2::Catch2WithMain)
+add_executable(BoundedVector-test BoundedVector-test.cpp BoundedVector.hpp)
+target_link_libraries(BoundedVector-test PRIVATE Catch2::Catch2WithMain)
 
 enable_testing()
 include(Catch)
-catch_discover_tests(MiniVector-test)
+catch_discover_tests(BoundedVector-test)

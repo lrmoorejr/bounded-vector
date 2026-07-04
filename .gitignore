@@ -5,7 +5,7 @@ CMakeCache.txt
 cmake_install.cmake
 CTestTestfile.cmake
 .cmake/
-MiniVector-test
+BoundedVector-test
 .DS_Store
 .vscode/
 .idea/
