@@ -229,8 +229,8 @@ public:
 	 * @throws std::length_error If already at capacity M and @p index != size().
 	 */
 	constexpr inline void insert_at(unsigned int index, T item) {
-		throw_if<std::out_of_range>(index > count, "BoundedVector insert index out of range");
-		if(index == count)
+		throw_if<std::out_of_range>(index > static_cast<unsigned int>(count), "BoundedVector insert index out of range");
+		if(index == static_cast<unsigned int>(count))
 			push_back(item);
 		else {
 			throw_if<std::length_error>(count >= M, "BoundedVector overflow");
@@ -262,8 +262,8 @@ public:
 	 * @throws std::out_of_range If @p index >= size().
 	 */
 	constexpr inline void erase_at(unsigned int index) {
-		throw_if<std::out_of_range>(index >= count, "BoundedVector erase index out of range");
-		if(index != count - 1) {
+		throw_if<std::out_of_range>(index >= static_cast<unsigned int>(count), "BoundedVector erase index out of range");
+		if(index != static_cast<unsigned int>(count) - 1) {
 			if constexpr (std::is_trivially_copyable_v<T>)
 				memmove(components + index, components + index + 1, (count - index - 1) * sizeof(T));
 			else
@@ -332,7 +332,7 @@ public:
 	 * @throws std::out_of_range If @p index >= size().
 	 */
 	constexpr T& at(unsigned int index) {
-		throw_if<std::out_of_range>(index >= count, "BoundedVector at index out of range");
+		throw_if<std::out_of_range>(index >= static_cast<unsigned int>(count), "BoundedVector at index out of range");
 		return components[index];
 	}
 
@@ -342,7 +342,7 @@ public:
 	 * @throws std::out_of_range If @p index >= size().
 	 */
 	constexpr const T& at(unsigned int index) const {
-		throw_if<std::out_of_range>(index >= count, "BoundedVector at index out of range");
+		throw_if<std::out_of_range>(index >= static_cast<unsigned int>(count), "BoundedVector at index out of range");
 		return components[index];
 	}
 
