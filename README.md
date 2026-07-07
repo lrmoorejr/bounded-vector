@@ -1,5 +1,7 @@
 # BoundedVector.hpp
 
+[API docs](https://lrmoorejr.github.io/bounded-vector/)
+
 A fixed-capacity vector that never touches the heap -- capacity is a compile-time template
 parameter, and the backing storage lives inline in the object itself (on the stack, or wherever
 you put it). It's the same idea as `boost::container::static_vector` -- a vector-like container
