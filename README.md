@@ -124,4 +124,4 @@ capacity.
 
 ## License
 
-Apache License 2.0 -- see [LICENSE](LICENSE).
+Apache License 2.0 -- see [LICENSE](https://github.com/lrmoorejr/bounded-vector/blob/main/LICENSE).
