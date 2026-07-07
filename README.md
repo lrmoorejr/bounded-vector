@@ -27,7 +27,7 @@ v.size();                        // 3
 v.capacity();                    // 4
 ```
 
-## Drop-in for `std::vector`?
+## Drop-in for std::vector?
 
 Often, yes -- for code that only uses the common subset: `push_back`, `emplace_back`,
 `pop_back`, iterator-based `insert`/`erase`, `size`/`empty`/`capacity`, `front`/`back`,
