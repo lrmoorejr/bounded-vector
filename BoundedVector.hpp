@@ -307,6 +307,41 @@ public:
 	}
 
 	/**
+	 * @brief Iterator to the first element equal to value, or end() if none.
+	 *
+	 * std::vector itself has no find() member -- callers normally reach for the std::find()
+	 * algorithm instead -- but BoundedVector has no sorted/hashed structure to search any faster
+	 * than that same linear scan would, so it's exposed directly as a member for convenience,
+	 * matching contains()/find() as found on std::basic_string and the associative containers.
+	 *
+	 * @param value Value to search for.
+	 * @return Iterator to the first matching element, or end() if none is found.
+	 */
+	constexpr iterator find(const T& value) {
+		for(short index = 0; index < count; ++index)
+			if(components[index] == value)
+				return components + index;
+		return end();
+	}
+
+	/**
+	 * @brief const overload of find().
+	 */
+	constexpr const_iterator find(const T& value) const {
+		for(short index = 0; index < count; ++index)
+			if(components[index] == value)
+				return components + index;
+		return end();
+	}
+
+	/**
+	 * @brief True if any element equals value.
+	 */
+	constexpr bool contains(const T& value) const {
+		return find(value) != end();
+	}
+
+	/**
 	 * @brief Unchecked element access, matching std::vector::operator[]. Out-of-range @p index
 	 * is undefined behavior.
 	 *

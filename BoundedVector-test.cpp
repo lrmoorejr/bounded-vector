@@ -182,6 +182,31 @@ TEST_CASE( "at() matches operator[] for in-range access" ) {
 	CHECK(vector[1] == 20);
 }
 
+TEST_CASE( "find locates the first matching element and returns end() otherwise" ) {
+	BoundedVector<int, 5> vector = {1, 2, 3, 2};
+	CHECK(vector.find(2) == vector.begin() + 1);
+	CHECK(vector.find(99) == vector.end());
+
+	*vector.find(2) = 20;
+	CHECK(vector[1] == 20);
+}
+
+TEST_CASE( "find() const overload returns a const_iterator" ) {
+	const BoundedVector<int, 4> vector = {1, 2, 3};
+	BoundedVector<int, 4>::const_iterator result = vector.find(2);
+	CHECK(result == vector.begin() + 1);
+	CHECK(vector.find(99) == vector.end());
+}
+
+TEST_CASE( "contains reports membership without exposing a position" ) {
+	BoundedVector<int, 4> vector = {1, 2, 3};
+	CHECK(vector.contains(2));
+	CHECK_FALSE(vector.contains(99));
+
+	vector.clear();
+	CHECK_FALSE(vector.contains(1));
+}
+
 TEST_CASE( "const accessors" ) {
 	const BoundedVector<int, 4> vector = {1, 2, 3};
 	CHECK(vector[1] == 2);
